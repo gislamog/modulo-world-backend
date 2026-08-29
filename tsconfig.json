@@ -18,5 +18,13 @@
     "strict": true,
     "strictPropertyInitialization": false,
     "types": ["vitest/globals", "node"]
+  },
+  "watchOptions": {
+    // The source directory is bind-mounted from Windows into a Linux
+    // container, and inotify receives no events across that boundary.
+    // Polling costs a little CPU but is the only thing that detects edits.
+    "watchFile": "priorityPollingInterval",
+    "watchDirectory": "dynamicPriorityPolling",
+    "fallbackPolling": "dynamicPriority"
   }
 }
