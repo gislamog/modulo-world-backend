@@ -1,0 +1,13 @@
+# Development image. Source is bind-mounted from the host and Nest runs in
+# watch mode, so nothing is copied in beyond the dependency manifests.
+# Production builds are a separate image (story #22).
+FROM node:24-alpine
+
+WORKDIR /app
+
+# Only the manifests, so this layer is cached until dependencies change.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+EXPOSE 3000
+CMD ["npm", "run", "start:dev"]
