@@ -27,3 +27,6 @@ Thumbs.db
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Local-only working notes, not for the repository
+resources/
