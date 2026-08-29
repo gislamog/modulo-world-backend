@@ -1,0 +1,112 @@
+// ModuloWorld initial schema.
+//
+// The central decision here is the dual-nullable ownership shape on Score
+// and Progress: each row belongs to either a signed-in user or an anonymous
+// guest, never both and never neither. A CHECK constraint enforces that at
+// the database level, because application code alone would eventually let a
+// bad row through. Retrofitting this later would touch every score and
+// progress query, which is why it ships in the first migration.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Auth0's 'sub' claim. Stable for the life of the account and unique
+  // across connections, so it is the natural external key.
+  authSub String @unique @map("auth_sub")
+
+  role Role @default(USER)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  scores   Score[]
+  progress Progress[]
+
+  @@map("users")
+}
+
+model Game {
+  id String @id @default(uuid()) @db.Uuid
+
+  slug        String  @unique
+  title       String
+  description String?
+
+  // Games stay unpublished until their content is finished.
+  isPublished Boolean @default(false) @map("is_published")
+
+  // Both exist for anti-cheat (story #41): a submitted score above the
+  // maximum, or a completion faster than the minimum, is impossible rather
+  // than merely suspicious.
+  maxPossibleScore Int? @map("max_possible_score")
+  minDurationMs    Int? @map("min_duration_ms")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  scores   Score[]
+  progress Progress[]
+
+  @@map("games")
+}
+
+model Score {
+  id String @id @default(uuid()) @db.Uuid
+
+  gameId String @map("game_id") @db.Uuid
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  // Exactly one of these is set. See the CHECK constraint in the migration.
+  userId  String? @map("user_id") @db.Uuid
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestId String? @map("guest_id")
+
+  value      Int
+  durationMs Int? @map("duration_ms")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Leaderboard sort. Descending value, then earliest submission wins ties.
+  @@index([gameId, value(sort: Desc), createdAt])
+  @@index([userId])
+  @@index([guestId])
+  @@map("scores")
+}
+
+model Progress {
+  id String @id @default(uuid()) @db.Uuid
+
+  gameId String @map("game_id") @db.Uuid
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  // Same ownership shape as Score.
+  userId  String? @map("user_id") @db.Uuid
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestId String? @map("guest_id")
+
+  // Free-form per-game state. Shape varies by game, so it is not modelled
+  // further here.
+  state Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // One progress row per player per game. Partial unique indexes are added
+  // in the migration, since the two owner columns are nullable.
+  @@index([userId])
+  @@index([guestId])
+  @@map("progress")
+}

@@ -9,5 +9,12 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# The generated Prisma client is platform-specific and lives in node_modules,
+# which the anonymous volume keeps container-only. Generating it here means
+# the container has a Linux build regardless of what the host generated.
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+RUN npx prisma generate
+
 EXPOSE 3000
 CMD ["npm", "run", "start:dev"]
