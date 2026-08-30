@@ -36,3 +36,65 @@ jobs:
 
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.json
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    # A disposable database, created fresh for this job and thrown away
+    # with the runner. The e2e suite resets the schema, so it must never
+    # be pointed at a database anyone cares about.
+    services:
+      postgres:
+        # Same minor version as compose.yaml, so CI and production agree.
+        image: postgres:17.2-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: modulo_world_test
+        ports:
+          - 5432:5432
+        # Without this the job races the database and the first
+        # connection fails on a container that has started but is not
+        # yet accepting queries.
+        options: >-
+          --health-cmd "pg_isready -U test -d modulo_world_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # The name has to identify this as a test database: test/global-setup.ts
+      # refuses to run against anything else.
+      DATABASE_URL: postgresql://test:test@localhost:5432/modulo_world_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      # Prisma is stubbed here, so these need no database.
+      - name: Unit tests
+        run: npm run test:cov
+
+      # Hits the real Nest app and the real database. The global setup
+      # applies the migrations first.
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage/
+          retention-days: 14

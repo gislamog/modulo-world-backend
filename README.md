@@ -45,6 +45,33 @@ repository, which puts the frontend and API on a single origin behind Nginx.
 | `npm run test:e2e` | Run end-to-end tests |
 | `npm run test:cov` | Run tests with coverage |
 
+## Testing
+
+Two suites, with different needs.
+
+**Unit tests** (`npm test`) stub Prisma and need no database. They cover application
+logic, including the health controller's behaviour when the database is unreachable.
+
+**End-to-end tests** (`npm run test:e2e`) run the real Nest app against a real database.
+They need `DATABASE_URL` to point at a **disposable test database**, because the suite
+resets the schema before it runs. Start one and point the suite at it:
+
+```bash
+docker run -d --name mw-test-db \
+  -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=modulo_world_test \
+  -p 55432:5432 postgres:17.2-alpine
+
+DATABASE_URL="postgresql://test:test@localhost:55432/modulo_world_test" npm run test:e2e
+```
+
+`test/global-setup.ts` refuses to run unless the database name identifies it as a test
+database (`modulo_world_test` passes, `modulo_world` does not). The guard exists because
+the suite would otherwise destroy development data, and it only takes one run to learn
+that the hard way. It then applies every migration, so the tests hit the current schema.
+
+In CI the database is a service container created for the job and thrown away with the
+runner.
+
 ## Conventions
 
 **All routes are served under `/api`.** Nginx routes `/api` here and `/` to the frontend,
