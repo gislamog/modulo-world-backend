@@ -16,7 +16,9 @@ export class HealthController {
   // Deliberately unauthenticated: container orchestration and deploy checks
   // call this before any credential exists.
   @Get()
-  async check(@Res({ passthrough: true }) res: Response): Promise<HealthResponse> {
+  async check(
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<HealthResponse> {
     let database: 'up' | 'down' = 'down';
 
     try {
