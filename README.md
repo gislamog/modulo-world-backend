@@ -44,6 +44,7 @@ repository, which puts the frontend and API on a single origin behind Nginx.
 | `npm test` | Run unit tests once |
 | `npm run test:e2e` | Run end-to-end tests |
 | `npm run test:cov` | Run tests with coverage |
+| `npx prisma studio` | View Database |
 
 ## Testing
 
