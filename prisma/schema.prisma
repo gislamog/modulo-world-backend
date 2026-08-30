@@ -6,6 +6,10 @@
 // the database level, because application code alone would eventually let a
 // bad row through. Retrofitting this later would touch every score and
 // progress query, which is why it ships in the first migration.
+//
+// Game is a registry rather than a set of hardcoded routes (#19): adding a
+// game is a row plus a Svelte component, with no edit to routing, the
+// homepage, or the admin panel.
 
 generator client {
   provider = "prisma-client-js"
@@ -18,6 +22,16 @@ datasource db {
 enum Role {
   USER
   ADMIN
+}
+
+// What a game needs to be playable. Story #21 requires that a game which
+// cannot be played on touch says so up front rather than failing silently
+// on a phone, and the two non-touch cases need different wording, so this
+// is an enum rather than a boolean.
+enum InputRequirement {
+  TOUCH_OK
+  KEYBOARD_REQUIRED
+  MOUSE_REQUIRED
 }
 
 model User {
@@ -48,6 +62,12 @@ model Game {
   // Games stay unpublished until their content is finished.
   isPublished Boolean @default(false) @map("is_published")
 
+  // Defaults to the honest answer rather than the optimistic one: a new
+  // game is assumed unplayable on touch until someone confirms otherwise.
+  // The reverse default would silently promise phone support for every
+  // game added.
+  inputRequirement InputRequirement @default(KEYBOARD_REQUIRED) @map("input_requirement")
+
   // Both exist for anti-cheat (story #41): a submitted score above the
   // maximum, or a completion faster than the minimum, is impossible rather
   // than merely suspicious.
@@ -60,6 +80,8 @@ model Game {
   scores   Score[]
   progress Progress[]
 
+  // The homepage query: published games, newest first.
+  @@index([isPublished, createdAt(sort: Desc)])
   @@map("games")
 }
 
